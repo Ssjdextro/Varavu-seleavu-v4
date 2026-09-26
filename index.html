@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Varavu Selavu</title>
+<link rel="stylesheet" href="style.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<!-- Firebase (compat build — plain <script> tags, no bundler needed) -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+
+<!-- Excel export + charts (free CDN libraries, no build step) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+
+<script src="script.js" defer></script>
+
+</head>
+<body>
+
+<div class="wrap">
+
+  <header>
+    <div>
+      <div class="brand-eyebrow">VARAVU SELAVU</div>
+      <br>
+      <h1 style="font-size: 1.5rem; font-family:system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;">TRACK | ANALYTICS | EXPORT </h1>
+      <p class="subtitle">Every rupee in, every rupee out — filed by month, balanced on sight.</p>
+    </div>
+    <div class="header-actions">
+      <button class="sync-pill" id="syncStatus" type="button">
+        <span class="sync-dot" aria-hidden="true"></span>
+        <span id="syncStatusText">Signed out</span>
+      </button>
+      <button class="ghost-btn" id="openAnalytics" type="button" title="Analytics">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V10M12 19V5M20 19v-7"/></svg>
+        <span>Analytics</span>
+      </button>
+      <button class="ghost-btn" id="openExport" type="button" title="Export to Excel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+        <span>Export</span>
+      </button>
+      <button class="add-btn" id="openAdd">
+        <span aria-hidden="true">+</span> Add entry
+      </button>
+    </div>
+  </header>
+
+  <div class="month-nav-outer">
+    <nav class="month-nav" id="monthNav" aria-label="Select month"></nav>
+  </div>
+
+  <section class="summary-grid" aria-label="Monthly summary">
+    <div class="stat-card">
+      <div class="stat-label"><span class="dot income"></span> Income</div>
+      <div class="stat-value income" id="totalIncome">₹0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label"><span class="dot expense"></span> Expenses</div>
+      <div class="stat-value expense" id="totalExpense">₹0</div>
+    </div>
+    <div class="stat-card balance-card">
+      <div class="balance-seal" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M3 12h18M12 3v18" stroke-linecap="round"/></svg>
+      </div>
+      <div class="balance-text">
+        <div class="stat-label">Net balance</div>
+        <div class="balance-value" id="totalBalance">₹0</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="main-grid">
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title" id="listTitle">Entries</span>
+        <span class="panel-count" id="listCount">0 entries</span>
+      </div>
+      <div class="tx-list" id="txList"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Where it went</span>
+      </div>
+      <div class="cat-body" id="catBody"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Export modal -->
+<div class="modal-backdrop" id="exportModalBackdrop">
+  <div class="modal export-modal" role="dialog" aria-modal="true" aria-labelledby="exportModalTitle">
+    <div class="modal-header">
+      <span class="modal-title" id="exportModalTitle">Export to Excel</span>
+      <button class="modal-close" id="closeExportModal" aria-label="Close">×</button>
+    </div>
+    <p class="sheet-blurb">Download a spreadsheet with every entry, plus category and monthly summary sheets.</p>
+    <div class="export-options" id="exportOptions">
+      <button type="button" class="export-option" data-scope="month">
+        <span class="export-option-icon">📆</span>
+        <span class="export-option-text">
+          <strong id="exportMonthLabel">This month</strong>
+          <small>Entries filed under the month you're viewing</small>
+        </span>
+        <span class="export-option-go" aria-hidden="true">↓</span>
+      </button>
+      <button type="button" class="export-option" data-scope="all">
+        <span class="export-option-icon">🗂</span>
+        <span class="export-option-text">
+          <strong>All time</strong>
+          <small>Every entry ever filed, plus a month-by-month summary</small>
+        </span>
+        <span class="export-option-go" aria-hidden="true">↓</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Analytics modal -->
+<div class="modal-backdrop" id="analyticsModalBackdrop">
+  <div class="modal analytics-modal" role="dialog" aria-modal="true" aria-labelledby="analyticsModalTitle">
+    <div class="modal-header">
+      <span class="modal-title" id="analyticsModalTitle">Analytics</span>
+      <button class="modal-close" id="closeAnalyticsModal" aria-label="Close">×</button>
+    </div>
+
+    <div class="analytics-body">
+      <div class="analytics-stats" id="analyticsStats"></div>
+
+      <div class="chart-card">
+        <div class="chart-card-head">
+          <span class="chart-card-title">Income vs. expenses</span>
+          <span class="chart-card-sub">Every month on record</span>
+        </div>
+        <div class="chart-canvas-wrap chart-canvas-wide"><canvas id="trendChart"></canvas></div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-card-head">
+          <span class="chart-card-title">Where it went</span>
+          <span class="chart-card-sub" id="analyticsCatSub">This month's expenses by category</span>
+        </div>
+        <div class="chart-canvas-wrap"><canvas id="categoryChart"></canvas></div>
+        <div class="chart-empty" id="categoryChartEmpty" hidden>No expenses this month yet.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-header">
+      <span class="modal-title" id="modalTitle">New entry</span>
+      <button class="modal-close" id="closeModal" aria-label="Close">×</button>
+    </div>
+
+    <div class="type-toggle" role="tablist" aria-label="Entry type">
+      <button type="button" data-type="income" class="active" id="btnIncome">↓ Income</button>
+      <button type="button" data-type="expense" id="btnExpense">↑ Expense</button>
+    </div>
+
+    <form id="txForm">
+      <div class="field amount-field">
+        <label for="amount">Amount</label>
+        <span class="curr">₹</span>
+        <input type="number" id="amount" min="0" step="0.01" placeholder="0.00" required>
+      </div>
+
+      <div class="field">
+        <label for="description">Description</label>
+        <input type="text" id="description" placeholder="e.g. Grocery run, Freelance payout" required>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="category">Category</label>
+          <select id="category"></select>
+        </div>
+        <div class="field">
+          <label for="date">Date</label>
+          <input type="date" id="date" required>
+        </div>
+      </div>
+
+      <button type="submit" class="submit-btn" id="submitBtn">Add income</button>
+    </form>
+  </div>
+</div>
+
+<!-- Account Modal (sign in / sign out) -->
+<div class="modal-backdrop" id="accountModalBackdrop">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="accountModalTitle">
+    <div class="modal-header">
+      <span class="modal-title" id="accountModalTitle">Account</span>
+      <button class="modal-close" id="closeAccountModal" aria-label="Close">×</button>
+    </div>
+
+    <div id="accountBody">
+      <!-- populated by script.js: signed-out or signed-in view -->
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
