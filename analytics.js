@@ -203,7 +203,14 @@
     if(typeof Chart === 'undefined'){ canvas.style.display = 'none'; msg.hidden = false; msg.textContent = 'Charts could not load — check your connection.'; return; }
     config.options = Object.assign({responsive:true, maintainAspectRatio:false}, config.options);
     if(reduceMotion) config.options.animation = false;
-    charts[id] = new Chart(canvas, config);
+    try{
+      charts[id] = new Chart(canvas, config);
+    }catch(err){
+      console.error('Chart failed: ' + id, err);
+      canvas.style.display = 'none';
+      msg.hidden = false;
+      msg.textContent = 'This chart could not be drawn.';
+    }
   }
 
   function renderCharts(cur, k){
@@ -221,6 +228,7 @@
     const rows = keys.map(m => { const l = inMonth(m); return {inc:sum(l,'income'), exp:sum(l,'expense')}; });
     $('trendSub').textContent = keys.length + (keys.length === 1 ? ' month' : ' months');
     mount('trendChart', {
+      type:'bar',
       data:{ labels: keys.map(m => monthLabel(m)), datasets:[
         {type:'bar', label:'Income', data:rows.map(r=>r.inc), backgroundColor:inc, borderRadius:6, maxBarThickness:28},
         {type:'bar', label:'Expenses', data:rows.map(r=>r.exp), backgroundColor:exp, borderRadius:6, maxBarThickness:28},
@@ -249,6 +257,7 @@
     expenses.forEach(t => { const d = +t.date.slice(8,10); if(d>=1 && d<=dim) daily[d-1] += t.amount; });
     let run = 0; const cumul = daily.map(v => run += v);
     mount('dailyChart', {
+      type:'bar',
       data:{ labels:daily.map((_,i)=>i+1), datasets:[
         {type:'bar', label:'Spent that day', data:daily, backgroundColor:exp+'cc', borderRadius:4, yAxisID:'y', order:2},
         {type:'line', label:'Running total', data:cumul, borderColor:gold, borderWidth:2.5, pointRadius:0, pointHoverRadius:5, tension:0.3, yAxisID:'y1', order:1}
