@@ -6,7 +6,7 @@
 <title>Analytics · Varavu Selavu</title>
 <meta name="theme-color" content="#708baf">
 <script>(function(){try{var t=localStorage.getItem('ledger_theme');if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t)}catch(e){}})();</script>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=3">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -17,8 +17,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
-<script src="theme.js" defer></script>
-<script src="analytics.js" defer></script>
+<script src="theme.js?v=3" defer></script>
+<script src="analytics.js?v=3" defer></script>
 </head>
 <body>
 <div class="wrap">
@@ -46,6 +46,8 @@
       </a>
     </div>
   </header>
+
+  <div class="an-note" id="errNote" role="alert" hidden></div>
 
   <div class="an-note" id="localNote" hidden>
     You're not signed in, so this shows entries saved on this device. <a href="index.html">Sign in on the Ledger page</a> to see your cloud data.
@@ -116,5 +118,15 @@
   </div>
 
 </div>
+<script>
+/* Safety net: if analytics.js never started (not uploaded, wrong path, or a stale cached copy), say so on the page. */
+setTimeout(function(){
+  var t=document.getElementById('syncStatusText');
+  if(t && t.textContent==='Loading…'){
+    var n=document.getElementById('errNote'); n.hidden=false;
+    n.textContent='The charts did not start. Make sure analytics.js is uploaded next to analytics.html, then hard-refresh (Ctrl+Shift+R). Press F12 → Console for details.';
+  }
+},4000);
+</script>
 </body>
 </html>

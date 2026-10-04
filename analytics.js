@@ -10,6 +10,14 @@
   const PALETTE = ['#e2725b','#d4af37','#2dd4a7','#7fa8ff','#c792ea','#f0a08c','#5b95a8','#c9b458','#8a9bb8'];
 
   const $ = id => document.getElementById(id);
+
+  // Show any script error on the page itself, so a blank chart is never a mystery.
+  function showError(msg){
+    const n = document.getElementById('errNote'); if(!n) return;
+    n.hidden = false; n.textContent = 'Analytics error: ' + msg;
+  }
+  window.addEventListener('error', e => showError(e.message));
+  window.addEventListener('unhandledrejection', e => showError(String(e.reason && e.reason.message || e.reason)));
   const state = { tx: [], month: null, range: 6, ready: false };
   const charts = {};
   let firstPaint = true;
@@ -159,8 +167,8 @@
     $('dRate').innerHTML = rate === null ? 'No income filed this month'
       : pRate === null ? '' : `<b class="${rate >= pRate ? 'good' : 'bad'}">${rate >= pRate ? '▲' : '▼'} ${Math.abs(rate - pRate).toFixed(0)} pts</b> vs ${pl}`;
 
-    renderInsights(cur, k);
-    renderCharts(cur, k);
+    try{ renderInsights(cur, k); }catch(err){ console.error(err); showError(err.message); }
+    try{ renderCharts(cur, k); }catch(err){ console.error(err); showError(err.message); }
     firstPaint = false;
   }
 
