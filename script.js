@@ -243,25 +243,70 @@
     });
 
     listEl.querySelectorAll('.tx-del').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const id = btn.dataset.id;
-        state.transactions = state.transactions.filter(t => t.id !== id);
-        saveLocalCache();
-        renderAll();
-
-        if(isSignedIn()){
-          setSyncStatus('syncing', 'Deleting…');
-          try{
-            await txCollection(currentUser.uid).doc(id).delete();
-            // onSnapshot will confirm and reset the pill to "Synced"
-          }catch(err){
-            console.error('Delete failed', err);
-            setSyncStatus('error', 'Delete failed to sync — reload to retry');
-          }
-        }
-      });
+      btn.addEventListener('click', () => askDelete(btn.dataset.id));
     });
   }
+
+  // ---------- Delete confirmation ----------
+  const confirmBackdrop = document.getElementById('confirmBackdrop');
+  const confirmSummary = document.getElementById('confirmSummary');
+  let pendingDeleteId = null;
+  let confirmReturnFocus = null;
+
+  function askDelete(id){
+    const t = state.transactions.find(x => x.id === id);
+    if(!t) return;
+    pendingDeleteId = id;
+    confirmReturnFocus = document.activeElement;
+    confirmSummary.innerHTML = `
+      <div class="tx-icon ${t.type}">${CAT_ICONS[t.category] || '•'}</div>
+      <div class="confirm-summary-mid">
+        <div class="confirm-summary-desc">${escapeHtml(t.description)}</div>
+        <div class="confirm-summary-meta">${escapeHtml(t.category)} · ${fmtDate(t.date)}</div>
+      </div>
+      <div class="tx-amount ${t.type}">${t.type === 'expense' ? '−' : '+'}${fmtMoney(t.amount)}</div>`;
+    confirmBackdrop.classList.add('open');
+    setTimeout(() => document.getElementById('confirmCancel').focus(), 120);
+  }
+  function closeConfirm(){
+    confirmBackdrop.classList.remove('open');
+    pendingDeleteId = null;
+    if(confirmReturnFocus && confirmReturnFocus.focus) confirmReturnFocus.focus();
+  }
+  async function deleteEntry(id){
+    state.transactions = state.transactions.filter(t => t.id !== id);
+    saveLocalCache();
+    renderAll();
+
+    if(isSignedIn()){
+      setSyncStatus('syncing', 'Deleting…');
+      try{
+        await txCollection(currentUser.uid).doc(id).delete();
+        // onSnapshot will confirm and reset the pill to "Synced"
+      }catch(err){
+        console.error('Delete failed', err);
+        setSyncStatus('error', 'Delete failed to sync — reload to retry');
+      }
+    }
+  }
+
+  document.getElementById('confirmCancel').addEventListener('click', closeConfirm);
+  document.getElementById('confirmDelete').addEventListener('click', () => {
+    const id = pendingDeleteId;
+    closeConfirm();
+    if(id) deleteEntry(id);
+  });
+  confirmBackdrop.addEventListener('click', (e) => { if(e.target === confirmBackdrop) closeConfirm(); });
+  document.addEventListener('keydown', (e) => {
+    if(!confirmBackdrop.classList.contains('open')) return;
+    if(e.key === 'Escape') closeConfirm();
+    if(e.key === 'Tab'){ // keep focus inside the dialog
+      const btns = [document.getElementById('confirmCancel'), document.getElementById('confirmDelete')];
+      const i = btns.indexOf(document.activeElement);
+      e.preventDefault();
+      btns[(i + (e.shiftKey ? -1 : 1) + 2) % 2].focus();
+    }
+  });
 
   function renderCategoryBreakdown(monthTx){
     const body = document.getElementById('catBody');
@@ -306,7 +351,6 @@
     renderSummary(monthTx);
     renderList(monthTx);
     renderCategoryBreakdown(monthTx);
-    if(analyticsBackdrop && analyticsBackdrop.classList.contains('open')) renderAnalytics();
   }
 
   // ---------- Modal / form ----------
@@ -483,141 +527,6 @@
   document.getElementById('exportOptions').querySelectorAll('.export-option').forEach(btn => {
     btn.addEventListener('click', () => exportToExcel(btn.dataset.scope));
   });
-
-  // ---------- Analytics ----------
-  const analyticsBackdrop = document.getElementById('analyticsModalBackdrop');
-  const openAnalyticsBtn = document.getElementById('openAnalytics');
-  let trendChart = null;
-  let categoryChart = null;
-  const CHART_PALETTE = ['#e2725b','#d4af37','#2dd4a7','#7fa8ff','#c792ea','#f0a08c','#5b95a8','#c9b458','#56637a'];
-
-  function openAnalyticsModal(){
-    ensureSelectedMonth();
-    analyticsBackdrop.classList.add('open');
-    renderAnalytics();
-  }
-  function closeAnalyticsModal(){
-    analyticsBackdrop.classList.remove('open');
-  }
-
-  if(openAnalyticsBtn) openAnalyticsBtn.addEventListener('click', openAnalyticsModal);
-  document.getElementById('closeAnalyticsModal').addEventListener('click', closeAnalyticsModal);
-  analyticsBackdrop.addEventListener('click', (e) => { if(e.target === analyticsBackdrop) closeAnalyticsModal(); });
-
-  function renderAnalyticsStats(){
-    const box = document.getElementById('analyticsStats');
-    if(!box) return;
-
-    const monthly = monthlySummaryRows();
-    const monthsWithExpense = monthly.filter(m => m.Expenses > 0);
-    const avgExpense = monthsWithExpense.length
-      ? monthsWithExpense.reduce((s,m) => s + m.Expenses, 0) / monthsWithExpense.length
-      : 0;
-    const bestMonth = monthly.length
-      ? monthly.reduce((best,m) => m.Balance > best.Balance ? m : best, monthly[0])
-      : null;
-
-    const expenseTotals = {};
-    state.transactions.filter(t => t.type === 'expense').forEach(t => {
-      expenseTotals[t.category] = (expenseTotals[t.category] || 0) + t.amount;
-    });
-    const topCatEntry = Object.entries(expenseTotals).sort((a,b) => b[1]-a[1])[0];
-
-    const cards = [
-      {label:'Avg. monthly spend', value: avgExpense ? fmtMoney(avgExpense) : '—'},
-      {label:'Strongest month', value: bestMonth ? bestMonth.Month : '—'},
-      {label:'Top expense category', value: topCatEntry ? (CAT_ICONS[topCatEntry[0]] || '') + ' ' + topCatEntry[0] : '—'}
-    ];
-    box.innerHTML = cards.map(c => `
-      <div class="analytics-stat">
-        <div class="analytics-stat-label">${c.label}</div>
-        <div class="analytics-stat-value">${c.value}</div>
-      </div>
-    `).join('');
-  }
-
-  function renderTrendChart(){
-    const canvas = document.getElementById('trendChart');
-    if(!canvas || typeof Chart === 'undefined') return;
-    const keys = getAllMonthKeys();
-    const incomeData = keys.map(k => state.transactions.filter(t => monthKey(t.date) === k && t.type === 'income').reduce((s,t)=>s+t.amount,0));
-    const expenseData = keys.map(k => state.transactions.filter(t => monthKey(t.date) === k && t.type === 'expense').reduce((s,t)=>s+t.amount,0));
-
-    if(trendChart) trendChart.destroy();
-    trendChart = new Chart(canvas, {
-      type: 'line',
-      data: {
-        labels: keys.map(monthLabel),
-        datasets: [
-          { label:'Income', data:incomeData, borderColor:'#2dd4a7', backgroundColor:'rgba(45,212,167,0.16)', tension:0.35, fill:true, pointRadius:3, pointBackgroundColor:'#2dd4a7', borderWidth:2 },
-          { label:'Expenses', data:expenseData, borderColor:'#e2725b', backgroundColor:'rgba(226,114,91,0.14)', tension:0.35, fill:true, pointRadius:3, pointBackgroundColor:'#e2725b', borderWidth:2 }
-        ]
-      },
-      options: {
-        responsive:true, maintainAspectRatio:false,
-        interaction:{mode:'index', intersect:false},
-        plugins:{
-          legend:{ position:'top', align:'end', labels:{ color:'#2b3644', boxWidth:10, boxHeight:10, usePointStyle:true, font:{family:"'Plus Jakarta Sans'", size:12} } },
-          tooltip:{ backgroundColor:'#1c232c', borderColor:'rgba(244,239,230,0.14)', borderWidth:1, titleColor:'#f4efe6', bodyColor:'#edeae3', padding:10, callbacks:{ label: (ctx) => ' ' + ctx.dataset.label + ': ' + fmtMoney(ctx.parsed.y) } }
-        },
-        scales:{
-          x:{ ticks:{ color:'#56637a', font:{size:11} }, grid:{ color:'rgba(20,30,50,0.08)' } },
-          y:{ ticks:{ color:'#56637a', font:{size:11}, callback:(v)=>'₹'+v }, grid:{ color:'rgba(20,30,50,0.08)' } }
-        }
-      }
-    });
-  }
-
-  function renderCategoryChart(){
-    const canvas = document.getElementById('categoryChart');
-    const emptyEl = document.getElementById('categoryChartEmpty');
-    const subEl = document.getElementById('analyticsCatSub');
-    if(!canvas || typeof Chart === 'undefined') return;
-
-    if(subEl) subEl.textContent = (state.selectedMonth ? monthLabel(state.selectedMonth) : 'This month') + "'s expenses by category";
-
-    const monthTx = getMonthTransactions().filter(t => t.type === 'expense');
-    const totals = {};
-    monthTx.forEach(t => { totals[t.category] = (totals[t.category] || 0) + t.amount; });
-    const entries = Object.entries(totals).sort((a,b) => b[1]-a[1]);
-
-    if(categoryChart){ categoryChart.destroy(); categoryChart = null; }
-
-    if(!entries.length){
-      canvas.style.display = 'none';
-      if(emptyEl) emptyEl.hidden = false;
-      return;
-    }
-    canvas.style.display = '';
-    if(emptyEl) emptyEl.hidden = true;
-
-    categoryChart = new Chart(canvas, {
-      type: 'doughnut',
-      data: {
-        labels: entries.map(e => e[0]),
-        datasets: [{
-          data: entries.map(e => e[1]),
-          backgroundColor: entries.map((_,i) => CHART_PALETTE[i % CHART_PALETTE.length]),
-          borderColor: '#fbf8f2',
-          borderWidth: 2,
-          hoverOffset: 6
-        }]
-      },
-      options: {
-        responsive:true, maintainAspectRatio:false, cutout:'64%',
-        plugins:{
-          legend:{ position:'bottom', labels:{ color:'#2b3644', boxWidth:10, boxHeight:10, usePointStyle:true, padding:14, font:{family:"'Plus Jakarta Sans'", size:11.5} } },
-          tooltip:{ backgroundColor:'#1c232c', borderColor:'rgba(244,239,230,0.14)', borderWidth:1, titleColor:'#f4efe6', bodyColor:'#edeae3', padding:10, callbacks:{ label: (ctx) => ' ' + ctx.label + ': ' + fmtMoney(ctx.parsed) } }
-        }
-      }
-    });
-  }
-
-  function renderAnalytics(){
-    renderAnalyticsStats();
-    renderTrendChart();
-    renderCategoryChart();
-  }
 
   // ---------- Account modal (sign in / sign out) ----------
   const accountBackdrop = document.getElementById('accountModalBackdrop');
