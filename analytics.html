@@ -6,7 +6,7 @@
 <title>Analytics · Varavu Selavu</title>
 <meta name="theme-color" content="#708baf">
 <script>(function(){try{var t=localStorage.getItem('ledger_theme');if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t)}catch(e){}})();</script>
-<link rel="stylesheet" href="style.css?v=3">
+<link rel="stylesheet" href="style.css?v=4">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -16,9 +16,12 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
-<script src="theme.js?v=3" defer></script>
-<script src="analytics.js?v=3" defer></script>
+<!-- Chart.js is bundled locally (chart.umd.js) so charts never depend on a CDN; the CDNs below are only a fallback -->
+<script src="chart.umd.js?v=4"></script>
+<script>if(typeof Chart==='undefined')document.write('<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.js"><\/script>');</script>
+<script>if(typeof Chart==='undefined')document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.js"><\/script>');</script>
+<script src="theme.js?v=4" defer></script>
+<script src="analytics.js?v=4" defer></script>
 </head>
 <body>
 <div class="wrap">

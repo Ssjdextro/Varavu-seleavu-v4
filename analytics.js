@@ -222,6 +222,7 @@
   }
 
   function renderCharts(cur, k){
+    if(typeof Chart === 'undefined') showError('the chart library (chart.umd.js) did not load — upload chart.umd.js next to analytics.html.');
     const text = css('--text-dim'), grid = css('--border'), ink = css('--ink');
     const inc = css('--income'), exp = css('--expense'), gold = css('--gold'), surf = css('--surface-solid') || '#fff';
     const font = {family:"'Plus Jakarta Sans'", size:11.5};
@@ -229,7 +230,7 @@
     const legend = { position:'bottom', labels:{color:text, usePointStyle:true, boxWidth:8, boxHeight:8, padding:14, font} };
     const axis = { ticks:{color:text, font}, grid:{color:grid}, border:{display:false} };
     const money = ctx => ' ' + ctx.dataset.label + ': ' + fmtMoney(ctx.parsed.y ?? ctx.parsed.x ?? ctx.parsed);
-    Chart.defaults.font.family = "'Plus Jakarta Sans'";
+    if(typeof Chart !== 'undefined') Chart.defaults.font.family = "'Plus Jakarta Sans'";
 
     // 1. income vs expenses + net line
     const keys = rangeKeys();
